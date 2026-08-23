@@ -2,12 +2,16 @@ package location;
 
 import java.awt.*;
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Main {
     static void main() throws Exception {
         IOCContainer container = new IOCContainer();
+
+        container.findBeans();
 
         OrderService orderService = container.getBean(OrderService.class);
 
@@ -36,15 +40,27 @@ class OrderService {
 }
 
 class IOCContainer {
+    private final Collection<Class<?>> beanCandidates = new ArrayList<>();
     private final Map<Class<?>, Object> beans = new HashMap<>();
 
-    @SuppressWarnings("unchecked")
-    public <T> T getBean(Class<T> type) throws Exception {
-        if(beans.containsKey(type)) {
-            return type.cast(beans.get(type));
+    public IOCContainer() throws Exception {
+        findBeans();
+        for(Class<?> beanCandidate : beanCandidates) {
+            initializeBean(beanCandidate);
         }
+    }
 
-        Constructor<?>[] constructors = type.getConstructors();
+    public <T> T findBeans() {
+
+        //discover annotated classes
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public void initializeBean(Class<?> beanCandidate) throws Exception {
+
+        Constructor<?>[] constructors = beanCandidate.getConstructors();
         Constructor<?> constructor = constructors[0];
 
         Class<?>[] parameterTypes = constructor.getParameterTypes();
@@ -54,10 +70,17 @@ class IOCContainer {
             parameters[i] = getBean(parameterTypes[i]);
         }
 
-        T instance = (T) constructor.newInstance(parameters);
+        Object instance = constructor.newInstance(parameters);
 
-        beans.put(type, instance);
+        beans.put(beanCandidate, instance);
+    }
 
-        return instance;
+    @SuppressWarnings("unchecked")
+    public <T> T getBean(Class<T> type) {
+        if(beans.containsKey(type)) {
+            return type.cast(beans.get(type));
+        } else {
+            throw new RuntimeException();
+        }
     }
 }
