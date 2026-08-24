@@ -1,6 +1,5 @@
 package location;
 
-import javax.annotation.processing.Generated;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.ElementType;
