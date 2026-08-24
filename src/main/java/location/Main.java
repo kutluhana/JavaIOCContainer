@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 @IGuessThisIsABean
 public class Main {
     static void main() throws Exception {
-        IOCContainer container = new IOCContainer();
+        new IOCContainer();
     }
 }
 
@@ -53,7 +53,7 @@ class IOCContainer {
     private final Map<Class<?>, Object> beans = new HashMap<>();
 
     public IOCContainer() throws Exception {
-        fillBeanCandidates();//How class? check it!!
+        fillBeanCandidates();
         for(Class<?> beanCandidate : beanCandidates) {
             initializeBean(beanCandidate);
         }
