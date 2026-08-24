@@ -1,5 +1,6 @@
 package location;
 
+import javax.annotation.processing.Generated;
 import java.io.File;
 import java.io.IOException;
 import java.lang.annotation.ElementType;
@@ -16,13 +17,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
-@IGuessThisIsABean
 public class Main {
     static void main() throws Exception {
         new IOCContainer();
     }
 }
 
+@IGuessThisIsABean
 class PaymentService {
 
     public PaymentService() {
@@ -55,7 +56,9 @@ class IOCContainer {
     public IOCContainer() throws Exception {
         fillBeanCandidates();
         for(Class<?> beanCandidate : beanCandidates) {
-            initializeBean(beanCandidate);
+            if(!beans.containsKey(beanCandidate)) {
+                initializeBean(beanCandidate);
+            }
         }
     }
 
