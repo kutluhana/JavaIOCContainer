@@ -25,7 +25,9 @@ public class Main {
 
 class PaymentService {
 
-    public PaymentService() {}
+    public PaymentService() {
+        System.out.println("PaymentService is created");
+    }
 
     public void pay() {
         System.out.println("Paid!");
@@ -38,6 +40,7 @@ class OrderService {
 
     public OrderService(PaymentService paymentService) {
         this.paymentService = paymentService;
+        System.out.println("OrderService is created");
     }
     public void checkout() {
         paymentService.pay();
@@ -45,7 +48,7 @@ class OrderService {
 }
 
 class IOCContainer {
-    private static final Path ROOT_PATH = Paths.get("").toAbsolutePath();
+    private static final Path ROOT_PATH = Paths.get("/Users/kutluhanpalalioglu/Desktop/JavaIOCContainer/target/classes").toAbsolutePath();
     private final Set<Class<?>> beanCandidates = new HashSet<>();
     private final Map<Class<?>, Object> beans = new HashMap<>();
 
@@ -61,14 +64,14 @@ class IOCContainer {
 
         try(Stream<Path> paths = Files.walk(ROOT_PATH)) {
             paths.parallel()
-                    .filter(p -> p.toString().endsWith(".java"))
+                    .filter(p -> p.toString().endsWith(".class"))
                     .forEach(path -> {
-                        String className = ROOT_PATH.relativize(path).toString()
+                        String fileName = ROOT_PATH.relativize(path).toString()
                                 .replace(File.separatorChar, '.')
                                 .replaceAll("\\.class$", "");
 
                         try {
-                            Class<?> justAClass = Class.forName(className, false, classLoader);
+                            Class<?> justAClass = Class.forName(fileName, false, classLoader);
 
                             if(justAClass.isAnnotationPresent(IGuessThisIsABean.class)) {
                                 beanCandidates.add(justAClass);
@@ -80,11 +83,10 @@ class IOCContainer {
         } catch (IOException exception) {
             System.out.println("Couldn't walk and fell...");
         }
-
     }
 
     @SuppressWarnings("unchecked")
-    public void initializeBean(Class<?> beanCandidate) throws Exception {
+    public <T> T initializeBean(Class<?> beanCandidate) throws Exception {
         Constructor<?>[] constructors = beanCandidate.getConstructors();
         Constructor<?> constructor = constructors[0];
 
@@ -95,17 +97,18 @@ class IOCContainer {
             parameters[i] = getBean(parameterTypes[i]);
         }
 
-        Object instance = constructor.newInstance(parameters);
-
+        T instance = (T) constructor.newInstance(parameters);
         beans.put(beanCandidate, instance);
+
+        return instance;
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getBean(Class<T> type) {
+    public <T> T getBean(Class<T> type) throws Exception {
         if(beans.containsKey(type)) {
             return type.cast(beans.get(type));
         } else {
-            throw new RuntimeException();
+            return initializeBean(type);
         }
     }
 }
