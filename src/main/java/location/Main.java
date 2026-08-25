@@ -22,31 +22,6 @@ public class Main {
     }
 }
 
-@IGuessThisIsABean
-class PaymentService {
-
-    public PaymentService() {
-        System.out.println("PaymentService is created");
-    }
-
-    public void pay() {
-        System.out.println("Paid!");
-    }
-}
-
-@IGuessThisIsABean
-class OrderService {
-    private final PaymentService paymentService;
-
-    public OrderService(PaymentService paymentService) {
-        this.paymentService = paymentService;
-        System.out.println("OrderService is created");
-    }
-    public void checkout() {
-        paymentService.pay();
-    }
-}
-
 class IOCContainer {
     private static final Path ROOT_PATH = Paths.get("/Users/kutluhanpalalioglu/Desktop/JavaIOCContainer/target/classes").toAbsolutePath();
     private final Set<Class<?>> beanCandidates = new HashSet<>();
@@ -112,6 +87,31 @@ class IOCContainer {
         } else {
             return initializeBean(type);
         }
+    }
+}
+
+@IGuessThisIsABean
+class PaymentService {
+
+    public PaymentService() {
+        System.out.println("PaymentService is created");
+    }
+
+    public void pay() {
+        System.out.println("Paid!");
+    }
+}
+
+@IGuessThisIsABean
+class OrderService {
+    private final PaymentService paymentService;
+
+    public OrderService(PaymentService paymentService) {
+        this.paymentService = paymentService;
+        System.out.println("OrderService is created");
+    }
+    public void checkout() {
+        paymentService.pay();
     }
 }
 
