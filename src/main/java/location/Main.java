@@ -10,10 +10,9 @@ import java.lang.reflect.Constructor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Main {
@@ -24,7 +23,7 @@ public class Main {
 
 class IOCContainer {
     private static final Path ROOT_PATH = Paths.get("/Users/kutluhanpalalioglu/Desktop/JavaIOCContainer/target/classes").toAbsolutePath();
-    private final Set<Class<?>> beanCandidates = new HashSet<>();
+    private final Set<Class<?>> beanCandidates = ConcurrentHashMap.newKeySet();
     private final Map<Class<?>, Object> beans = new HashMap<>();
 
     public IOCContainer() throws Exception {
@@ -39,26 +38,31 @@ class IOCContainer {
     public void fillBeanCandidates() {
         ClassLoader classLoader = Main.class.getClassLoader();
 
-        try(Stream<Path> paths = Files.walk(ROOT_PATH)) {
-            paths.parallel()
-                    .filter(p -> p.toString().endsWith(".class"))
-                    .forEach(path -> {
-                        String fileName = ROOT_PATH.relativize(path).toString()
-                                .replace(File.separatorChar, '.')
-                                .replaceAll("\\.class$", "");
-
-                        try {
-                            Class<?> justAClass = Class.forName(fileName, false, classLoader);
-
-                            if(justAClass.isAnnotationPresent(IGuessThisIsABean.class)) {
-                                beanCandidates.add(justAClass);
-                            }
-                        } catch (ClassNotFoundException e) {
-                            System.out.println("Where are my beans!!!");
-                        }
-                    });
+        try (Stream<Path> paths = Files.walk(ROOT_PATH)) {
+            beanCandidates.addAll(
+                    paths.parallel()
+                            .filter(p -> p.toString().endsWith(".class"))
+                            .map(path -> ROOT_PATH.relativize(path).toString()
+                                    .replace(File.separatorChar, '.')
+                                    .replaceAll("\\.class$", ""))
+                            .map(name -> loadClass(name, classLoader))
+                            .filter(Objects::nonNull)
+                            .filter(c -> c.isAnnotationPresent(IGuessThisIsABean.class))
+                            .collect(Collectors.toSet()));
+            // if you are adding to a hashset either use concurrent data structures or thread safe operations on normal data structures.
+            // I changed beanCandidates.add() to Collectors.toSet() because .add() is not a thread-safe operation. On the other hand Collectors.toSet()
+            // creates different sets for each parallel thread, then merges them. So there is no concurrency problem.
         } catch (IOException exception) {
             System.out.println("Couldn't walk and fell...");
+        }
+    }
+
+    private Class<?> loadClass(String name, ClassLoader classLoader) {
+        try {
+            return Class.forName(name, false, classLoader);
+        } catch (ClassNotFoundException e) {
+            System.out.println("Where are my beans!!! " + name);
+            return null;
         }
     }
 
