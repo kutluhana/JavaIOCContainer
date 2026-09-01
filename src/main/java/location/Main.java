@@ -17,41 +17,41 @@ import java.util.stream.Stream;
 
 public class Main {
     static void main() throws Exception {
-        new IOCContainer();
+        IOCContainer iocContainer = new IOCContainer();
+
+        OrderService orderService = iocContainer.getBean(OrderService.class);
+        OrderService orderService2 = iocContainer.getBean(OrderService.class);
+        OrderService orderService3 = iocContainer.getBean(OrderService.class);
+        OrderService orderService4 = iocContainer.getBean(OrderService.class);
+
     }
 }
 
 class IOCContainer {
     private static final Path ROOT_PATH = Paths.get("/Users/kutluhanpalalioglu/Desktop/JavaIOCContainer/target/classes").toAbsolutePath();
-    private final Set<Class<?>> beanCandidates = ConcurrentHashMap.newKeySet();
+    private static final String SINGLETON = "singleton";
     private final Map<Class<?>, Object> beans = new HashMap<>();
+
+    private final Set<Class<?>> beanCandidates = ConcurrentHashMap.newKeySet();
+    private final Map<Class<?>, String> scopeNames = new ConcurrentHashMap<>();
 
     public IOCContainer() throws Exception {
         fillBeanCandidates();
         for(Class<?> beanCandidate : beanCandidates) {
-            if(!beans.containsKey(beanCandidate)) {
+            if(!beans.containsKey(beanCandidate) && SINGLETON.equals(scopeNames.get(beanCandidate))) {
                 initializeBean(beanCandidate);
             }
         }
+        System.out.println("All the singleton beans are created!");
     }
 
     public void fillBeanCandidates() {
-        ClassLoader classLoader = Main.class.getClassLoader();
-
         try (Stream<Path> paths = Files.walk(ROOT_PATH)) {
-            beanCandidates.addAll(
-                    paths.parallel()
-                            .filter(p -> p.toString().endsWith(".class"))
-                            .map(path -> ROOT_PATH.relativize(path).toString()
-                                    .replace(File.separatorChar, '.')
-                                    .replaceAll("\\.class$", ""))
-                            .map(name -> loadClass(name, classLoader))
-                            .filter(Objects::nonNull)
-                            .filter(c -> c.isAnnotationPresent(IGuessThisIsABean.class))
-                            .collect(Collectors.toSet()));
-            // if you are adding to a hashset either use concurrent data structures or thread safe operations on normal data structures.
-            // I changed beanCandidates.add() to Collectors.toSet() because .add() is not a thread-safe operation. On the other hand Collectors.toSet()
-            // creates different sets for each parallel thread, then merges them. So there is no concurrency problem.
+            Set<Class<?>> setOfBeanCandidates = findBeanCandidates(paths);
+
+            beanCandidates.addAll(setOfBeanCandidates);
+            setOfBeanCandidates.forEach(item -> scopeNames.put(item, item.getAnnotation(AndThisIsTheScope.class).value().name()));
+
         } catch (IOException exception) {
             System.out.println("Couldn't walk and fell...");
         }
@@ -64,6 +64,21 @@ class IOCContainer {
             System.out.println("Where are my beans!!! " + name);
             return null;
         }
+    }
+
+    private Set<Class<?>> findBeanCandidates(Stream<Path> paths) {
+        ClassLoader classLoader = Main.class.getClassLoader();
+
+        return paths.parallel()
+                .filter(p -> p.toString().endsWith(".class"))
+                .map(path -> ROOT_PATH.relativize(path).toString()
+                        .replace(File.separatorChar, '.')
+                        .replaceAll("\\.class$", ""))
+                .map(name -> loadClass(name, classLoader))
+                .filter(Objects::nonNull)
+                .filter(c ->
+                        c.isAnnotationPresent(IGuessThisIsABean.class) && c.isAnnotationPresent(AndThisIsTheScope.class))
+                .collect(Collectors.toSet());
     }
 
     @SuppressWarnings("unchecked")
@@ -79,7 +94,10 @@ class IOCContainer {
         }
 
         T instance = (T) constructor.newInstance(parameters);
-        beans.put(beanCandidate, instance);
+
+        if(SINGLETON.equals(scopeNames.get(beanCandidate))) {
+            beans.put(beanCandidate, instance);
+        }
 
         return instance;
     }
@@ -95,6 +113,7 @@ class IOCContainer {
 }
 
 @IGuessThisIsABean
+@AndThisIsTheScope(TheScopes.SINGLETON)
 class PaymentService {
 
     public PaymentService() {
@@ -107,12 +126,13 @@ class PaymentService {
 }
 
 @IGuessThisIsABean
+@AndThisIsTheScope(TheScopes.PROTOTYPE)
 class OrderService {
     private final PaymentService paymentService;
 
     public OrderService(PaymentService paymentService) {
         this.paymentService = paymentService;
-        System.out.println("OrderService is created");
+        System.out.println("OrderService is created. And it is definitely a prototype!");
     }
     public void checkout() {
         paymentService.pay();
@@ -122,3 +142,13 @@ class OrderService {
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @interface IGuessThisIsABean {}
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
+@interface AndThisIsTheScope {
+    TheScopes value();
+}
+
+enum TheScopes {
+    SINGLETON, PROTOTYPE
+}
